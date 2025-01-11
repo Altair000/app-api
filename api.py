@@ -1,30 +1,38 @@
-# app.py
 from flask import Flask, jsonify
-import psycopg2
-from db import get_db_connection
+import mysql.connector
+from mysql.connector import Error
 
 app = Flask(__name__)
 
+# Configuración de la conexión a la base de datos
+DB_CONFIG = {
+    'host': 'Altalr.mysql.pythonanywhere-services.com',
+    'user': 'Altalr',  # Reemplaza con tu nombre de usuario
+    'password': '&802r4rL',  # Reemplaza con tu contraseña
+    'database': 'Altalr$registro'  # Reemplaza con el nombre de tu base de datos
+}
+
 @app.route('/productos', methods=['GET'])
 def get_productos():
-    # Establece la conexión con la base de datos
-    conn = get_db_connection()
-    
     try:
-        # Crea un cursor y ejecuta la consulta
-        cur = conn.cursor()
-        cur.execute("SELECT productos FROM inventario;")
-        
-        # Obtén los resultados de la consulta
-        productos = cur.fetchall()
-        
-        # Devuelve los productos como una respuesta JSON
-        return jsonify([producto[0] for producto in productos])  # [producto[0]] es para obtener solo el valor de la columna 'productos'
-    
-    except Exception as e:
-        return str(e), 500
-    finally:
-        conn.close()
+        # Conectar a la base de datos
+        connection = mysql.connector.connect(**DB_CONFIG)
+
+        if connection.is_connected():
+            cursor = connection.cursor(dictionary=True)  # Devuelve resultados como diccionarios
+            query = "SELECT producto FROM inventario"
+            cursor.execute(query)
+            productos = cursor.fetchall()  # Obtener todos los resultados
+
+            # Cerrar el cursor y la conexión
+            cursor.close()
+            connection.close()
+
+            # Devolver los productos en formato JSON
+            return jsonify({'productos': productos}), 200
+
+    except Error as e:
+        return jsonify({'error': f'Error al conectarse a la base de datos: {e}'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True)
