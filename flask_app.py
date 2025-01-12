@@ -38,15 +38,37 @@ def get_productos():
 
 @app.route('/detalles-producto', methods=['GET'])
 def detalle_producto():
-    nombre_producto = request.args.get('producto')
+    nombre_producto = request.args.get('producto')  # Obtener el parámetro del producto
+    if not nombre_producto:
+        return "Debe proporcionar el nombre del producto como parámetro.", 400
 
-    producto = next((item for item in productos if item['producto'].lower() == nombre_producto.lower()), None)
+    try:
+        # Conectar a la base de datos
+        connection = mysql.connector.connect(**DB_CONFIG)
 
-    if producto:
-        detalle = "\n".join([f"{key.capitalize()}: {value}" for key, value in producto.items()])
-        return detalle, 200
-    else:
-        return "Producto no encontrado", 404
+        if connection.is_connected():
+            cursor = connection.cursor(dictionary=True)
+            query = """
+                SELECT id, producto, inicio, precio, venta, restante, importe 
+                FROM inventario 
+                WHERE producto = %s
+            """
+            cursor.execute(query, (nombre_producto,))  # Evitar inyecciones SQL con parámetros
+            producto = cursor.fetchone()  # Obtener el primer resultado
+
+            # Cerrar el cursor y la conexión
+            cursor.close()
+            connection.close()
+
+            if producto:
+                # Formatear la respuesta como texto plano
+                detalle = "\n".join([f"{key.capitalize()}: {value}" for key, value in producto.items()])
+                return detalle, 200
+            else:
+                return "Producto no encontrado", 404
+
+    except Error as e:
+        return jsonify({'error': f'Error al conectarse a la base de datos: {e}'}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=0)
+    app.run(host='0.0.0.0', port=5000)
